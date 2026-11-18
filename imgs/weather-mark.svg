@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Weather">
+  <defs>
+    <linearGradient id="wmBg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16224a" />
+      <stop offset="1" stop-color="#080d1c" />
+    </linearGradient>
+    <linearGradient id="wmAccent" x1="14" y1="10" x2="50" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67e8f9" />
+      <stop offset="0.5" stop-color="#38bdf8" />
+      <stop offset="1" stop-color="#818cf8" />
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#wmBg)" />
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="17.25" fill="none" stroke="url(#wmAccent)" stroke-opacity="0.6" stroke-width="1.5" />
+
+  <circle cx="39" cy="25" r="9" fill="url(#wmAccent)" />
+  <g stroke="url(#wmAccent)" stroke-width="3" stroke-linecap="round">
+    <path d="M39 10v4" />
+    <path d="M39 36v4" />
+    <path d="M24 25h4" />
+    <path d="M50 25h4" />
+    <path d="m28.4 14.4 2.8 2.8" />
+    <path d="m46.8 32.8 2.8 2.8" />
+    <path d="m49.6 14.4-2.8 2.8" />
+    <path d="m31.2 32.8-2.8 2.8" />
+  </g>
+
+  <path d="M17 46.5h29a8 8 0 0 0 0.6-16 11.5 11.5 0 0 0-21.4 3A7.5 7.5 0 0 0 17 46.5Z" fill="#eaf6ff" />
+  <path d="M17 46.5h29a8 8 0 0 0 0.6-16 11.5 11.5 0 0 0-21.4 3A7.5 7.5 0 0 0 17 46.5Z" fill="url(#wmAccent)" opacity="0.2" />
+</svg>
