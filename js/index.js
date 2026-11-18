@@ -315,7 +315,7 @@ function applyLanguage() {
 }
 
 // ================ Skeleton loader ================
-function renderForecastSkeletons(count = 6) {
+function renderForecastSkeletons(count = MAX_FORECAST_DAYS) {
   if (!forecastGrid) return;
   forecastGrid.innerHTML = Array.from({ length: count })
     .map(
