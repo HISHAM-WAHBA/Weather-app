@@ -317,6 +317,66 @@ nav.bg-dark {
   transform: scale(0.97) !important;
 }
 
+/* ============== Viewer local time ============== */
+.local-time-wrap {
+  padding-bottom: 0.35rem;
+}
+
+.local-time-card {
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(30, 41, 70, 0.58), rgba(13, 20, 40, 0.62));
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.22);
+}
+
+.local-time__icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--highlight);
+  font-size: 18px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid var(--glass-border);
+}
+
+.local-time__main {
+  margin-top: 4px;
+}
+
+.local-time__clock {
+  color: var(--text-bright);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.local-time__date {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.local-time__zone {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
 /* ============== Shared glass card ============== */
 .todayDate,
 .forecast-panel {
@@ -1430,6 +1490,30 @@ footer::before {
 
   .search-area {
     padding-top: 2rem;
+  }
+
+  .local-time-card {
+    padding: 12px 14px;
+  }
+
+  .local-time__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .local-time__clock {
+    font-size: 1.25rem;
+  }
+
+  .local-time__date {
+    font-size: 12px;
+  }
+
+  .local-time__zone {
+    font-size: 10px;
+    padding: 6px 10px;
   }
 
   .search-eyebrow {

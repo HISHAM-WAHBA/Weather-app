@@ -93,6 +93,27 @@
         </p>
       </div>
 
+      <div class="local-time-wrap container mx-auto fade-in" style="--fade-delay: 0.12s">
+        <div class="local-time-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="local-time__icon">
+              <i class="fa-regular fa-clock" aria-hidden="true"></i>
+            </span>
+            <div>
+              <span class="card-eyebrow">
+                <span class="live-dot"></span>
+                <span data-i18n="localTime">YOUR LOCAL TIME</span>
+              </span>
+              <div class="local-time__main d-flex align-items-baseline flex-wrap gap-2">
+                <span id="localClock" class="local-time__clock" dir="ltr">--:--:--</span>
+                <span id="localDate" class="local-time__date">—</span>
+              </div>
+            </div>
+          </div>
+          <span id="localZone" class="local-time__zone" dir="ltr">—</span>
+        </div>
+      </div>
+
       <div class="container position-relative">
         <!-- Loading Spinner -->
         <div id="loadingSpinner" class="loading-overlay d-none">

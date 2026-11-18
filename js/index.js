@@ -8,6 +8,9 @@ const MAX_FORECAST_DAYS = 7;
 // * HTML elements
 const searchInput = document.querySelector("#searchInput");
 const searchBtn = document.querySelector("#searchBtn");
+const localClock = document.querySelector("#localClock");
+const localDateEl = document.querySelector("#localDate");
+const localZone = document.querySelector("#localZone");
 const loadingSpinner = document.querySelector("#loadingSpinner");
 const errorAlert = document.querySelector("#errorAlert");
 const errorMessage = document.querySelector("#errorMessage");
@@ -42,6 +45,7 @@ const todayWindDirection = document.querySelector("#todayWindDirection");
 const I18N = {
   en: {
     liveAnywhere: "Live weather, anywhere",
+    localTime: "YOUR LOCAL TIME",
     searchPlaceholder: "Search for a city...",
     searchHint: "Try “Cairo”, “London” or “Tokyo”",
     search: "Search",
@@ -69,6 +73,7 @@ const I18N = {
   },
   ar: {
     liveAnywhere: "طقس مباشر، في أي مكان",
+    localTime: "الوقت المحلي",
     searchPlaceholder: "ابحث عن مدينة...",
     searchHint: "جرّب «القاهرة» أو «لندن» أو «طوكيو»",
     search: "بحث",
@@ -278,6 +283,48 @@ function categoryFromCode(code) {
   return "clear";
 }
 
+// ================ Viewer's local time ================
+function renderLocalTime() {
+  if (!localClock && !localDateEl && !localZone) return;
+  const now = new Date();
+  const locale = dateLocale();
+
+  if (localClock) {
+    localClock.textContent = new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(now);
+  }
+
+  if (localDateEl) {
+    localDateEl.textContent = new Intl.DateTimeFormat(locale, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(now);
+  }
+
+  if (localZone) {
+    try {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Local";
+      const offset =
+        new Intl.DateTimeFormat("en-US", {
+          timeZone: zone,
+          timeZoneName: "shortOffset",
+        })
+          .formatToParts(now)
+          .find((part) => part.type === "timeZoneName")?.value || "GMT";
+      localZone.textContent = `${offset} · ${zone.replaceAll("_", " ")}`;
+      localZone.title = zone;
+    } catch (err) {
+      localZone.textContent = "Local";
+    }
+  }
+}
+
 // ================ Language ================
 function applyLanguage() {
   const isArabic = currentLang === "ar";
@@ -307,6 +354,7 @@ function applyLanguage() {
   }
 
   localStorage.setItem("weather-lang", currentLang);
+  renderLocalTime();
 
   if (weatherData && !weatherData.error) {
     todayWeather();
@@ -624,6 +672,7 @@ function forecastWeather() {
 
 // ================ Init & events ================
 applyLanguage();
+setInterval(renderLocalTime, 1000);
 
 if (langToggle) {
   langToggle.addEventListener("click", function () {
