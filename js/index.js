@@ -55,6 +55,7 @@ const I18N = {
     copyright:
       'Copyright 2025. Designed by <a href="https://hishamwahba.zya.me" target="_blank" rel="noopener noreferrer">Hisham Wahba.</a> All rights reserved ©',
     daysOutlook: "{n}-DAY OUTLOOK",
+    today: "Today",
     tomorrow: "Tomorrow",
     rainChance: "rain",
     noForecast: "No further forecast available for this location.",
@@ -80,6 +81,7 @@ const I18N = {
     forecastNote: "الدرجات القصوى / الدنيا. الأشرطة تعرض مدى التغير اليومي.",
     copyright: '© 2025 جميع الحقوق محفوظة. تصميم <a href="https://hishamwahba.zya.me" target="_blank" rel="noopener noreferrer">هشام وهبة.</a>',
     daysOutlook: "توقعات {n} أيام",
+    today: "اليوم",
     tomorrow: "غداً",
     rainChance: "مطر",
     noForecast: "لا توجد توقعات إضافية لهذا الموقع.",
@@ -549,38 +551,43 @@ function todayWeather() {
   replayAnimation(todayWeatherDescription, "weather-text-animate");
 }
 
-// ================ Upcoming days (7-day grid) ================
+// ================ Full 7-day grid ================
 function forecastWeather() {
   const { location, forecast } = weatherData;
-  const allDays = (forecast?.forecastday || []).slice(0, MAX_FORECAST_DAYS);
-  const upcoming = allDays.slice(1);
+  const days = (forecast?.forecastday || []).slice(0, MAX_FORECAST_DAYS);
 
   if (forecastLocation) {
     const country = location.country ? `, ${location.country}` : "";
     forecastLocation.innerHTML = `<i class="fa-solid fa-location-dot me-1"></i>${escapeHTML(location.name)}${escapeHTML(country)}`;
   }
   if (forecastRangeLabel) {
-    const total = allDays.length || upcoming.length + 1;
+    const total = days.length || 1;
     forecastRangeLabel.textContent =
       total > 1 ? t("daysOutlook", { n: total }) : t("forecastOutlook");
   }
 
-  if (!upcoming.length) {
+  if (!days.length) {
     forecastGrid.innerHTML = `<p class="forecast-empty mb-0">${t("noForecast")}</p>`;
     return;
   }
 
-  const lows = upcoming.map((d) => d.day.mintemp_c);
-  const highs = upcoming.map((d) => d.day.maxtemp_c);
+  const lows = days.map((d) => d.day.mintemp_c);
+  const highs = days.map((d) => d.day.maxtemp_c);
   const globalMin = Math.min(...lows);
   const globalMax = Math.max(...highs);
   const span = Math.max(globalMax - globalMin, 1);
   const isArabic = currentLang === "ar";
 
-  forecastGrid.innerHTML = upcoming
+  forecastGrid.innerHTML = days
     .map((dayData, index) => {
       const date = parseApiDate(dayData.date);
       const day = dayData.day;
+      const dayLabel =
+        index === 0
+          ? t("today")
+          : index === 1
+            ? t("tomorrow")
+            : weekday(date);
       const start = ((day.mintemp_c - globalMin) / span) * 100;
       const width = Math.max(((day.maxtemp_c - day.mintemp_c) / span) * 100, 10);
       const barPos = isArabic
@@ -590,7 +597,7 @@ function forecastWeather() {
       return `
         <article class="forecast-card" style="--i: ${index}">
           <div class="forecast-card__head">
-            <span class="forecast-card__day">${index === 0 ? escapeHTML(t("tomorrow")) : escapeHTML(weekday(date))}</span>
+            <span class="forecast-card__day">${escapeHTML(dayLabel)}</span>
             <span class="forecast-card__date">${escapeHTML(shortDate(date))}</span>
           </div>
           <img
