@@ -725,6 +725,16 @@ footer::before {
   color: var(--text-muted);
 }
 
+.footer-bottom a {
+  color: var(--text-main);
+  font-weight: 600;
+  transition: color 0.25s ease;
+}
+
+.footer-bottom a:hover {
+  color: var(--highlight);
+}
+
 /* ============== Animations ============== */
 @keyframes fadeInUp {
   from {

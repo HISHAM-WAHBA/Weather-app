@@ -53,7 +53,7 @@ const I18N = {
     daysAhead: "The days ahead",
     forecastNote: "Temps shown as high / low. Bars reflect the daily range.",
     copyright:
-      'Copyright 2025. Designed by <strong>Hisham Wahba.</strong> All rights reserved ©',
+      'Copyright 2025. Designed by <a href="https://hishamwahba.zya.me" target="_blank" rel="noopener noreferrer">Hisham Wahba.</a> All rights reserved ©',
     daysOutlook: "{n}-DAY OUTLOOK",
     tomorrow: "Tomorrow",
     rainChance: "rain",
@@ -78,7 +78,7 @@ const I18N = {
     forecastOutlook: "توقعات 7 أيام",
     daysAhead: "الأيام القادمة",
     forecastNote: "الدرجات القصوى / الدنيا. الأشرطة تعرض مدى التغير اليومي.",
-    copyright: "© 2025 جميع الحقوق محفوظة. تصميم <strong>هشام وهبة.</strong>",
+    copyright: '© 2025 جميع الحقوق محفوظة. تصميم <a href="https://hishamwahba.zya.me" target="_blank" rel="noopener noreferrer">هشام وهبة.</a>',
     daysOutlook: "توقعات {n} أيام",
     tomorrow: "غداً",
     rainChance: "مطر",
