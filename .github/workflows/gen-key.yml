@@ -22,7 +22,7 @@ jobs:
             -keystore HW.jks \
             -alias HW \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass HW -keypass HW \
+            -storepass HW2026 -keypass HW2026 \
             -dname "CN=HW, OU=HW, O=HW, L=HW, ST=HW, C=EG"
 
       - name: Upload keystore
