@@ -682,15 +682,44 @@ if (langToggle) {
   });
 }
 
-navigator.geolocation.getCurrentPosition(
-  function (location) {
-    startApp(`${location.coords.latitude},${location.coords.longitude}`);
-  },
-  function (error) {
-    console.warn("Could not access location, defaulting to Cairo");
-    startApp("Cairo");
-  },
-);
+// Load a default city first. Waiting for GPS before rendering used to leave the
+// screen stuck on "Fetching weather data..." when permission was pending/denied.
+startApp("Cairo");
+
+// Then try to upgrade to the device location. Options + a hard guard make sure
+// the app never depends on GPS (some WebViews ignore the timeout option).
+function detectDeviceLocation() {
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== "function") {
+    return;
+  }
+
+  let settled = false;
+  const finish = () => { settled = true; };
+  const useCoords = (coords) => {
+    if (settled) return;
+    finish();
+    if (coords && Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)) {
+      startApp(`${coords.latitude},${coords.longitude}`, true);
+    }
+  };
+
+  try {
+    navigator.geolocation.getCurrentPosition(
+      (position) => useCoords(position && position.coords),
+      (error) => {
+        console.warn("Location unavailable, keeping default city:", error && error.message);
+        finish();
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
+    );
+    setTimeout(finish, 9000);
+  } catch (err) {
+    console.warn("Geolocation blocked:", err);
+    finish();
+  }
+}
+
+detectDeviceLocation();
 
 function handleSearch() {
   const query = searchInput.value.trim();
