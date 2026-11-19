@@ -1,7 +1,10 @@
 pluginManagement {
     repositories {
         google()
-        mavenCentral()
+        // repo.maven.apache.org rate-limits shared GitHub runner IPs (HTTP 404 +
+        // retry-after). repo1.maven.org is the same Maven Central content on a
+        // different hostname and is not affected.
+        maven { url 'https://repo1.maven.org/maven2' }
         gradlePluginPortal()
     }
 }
@@ -9,7 +12,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        mavenCentral()
+        maven { url 'https://repo1.maven.org/maven2' }
     }
 }
 
