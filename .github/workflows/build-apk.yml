@@ -34,12 +34,12 @@ jobs:
         working-directory: android
         run: chmod +x gradlew
 
-      - name: Build debug APK
+      - name: Build signed release APK
         working-directory: android
         run: |
           for attempt in 1 2 3; do
             echo "Build attempt $attempt of 3"
-            if ./gradlew assembleDebug --no-daemon; then
+            if ./gradlew assembleRelease --no-daemon; then
               exit 0
             fi
           done
@@ -48,6 +48,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: weather-app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: weather-app
+          path: 'android/app/build/outputs/apk/release/weather app.apk'
           retention-days: 30

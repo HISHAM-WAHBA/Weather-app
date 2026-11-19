@@ -14,10 +14,28 @@ android {
         versionName '1.0'
     }
 
+    // Stable signing key (alias HW) so future updates install over this one.
+    signingConfigs {
+        release {
+            storeFile file('HW.jks')
+            storePassword 'HW2026'
+            keyAlias 'HW'
+            keyPassword 'HW2026'
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // Output file name: "weather app.apk" — no "debug"/"release" in the name.
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = 'weather app.apk'
         }
     }
 
