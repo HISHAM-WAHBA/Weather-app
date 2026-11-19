@@ -198,10 +198,16 @@ public class MainActivity extends Activity {
     }
 
     private boolean isOnline() {
-        ConnectivityManager manager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        if (manager == null) return false;
-        NetworkCapabilities caps = manager.getNetworkCapabilities(manager.getActiveNetwork());
-        return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        try {
+            ConnectivityManager manager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            if (manager == null) return true;
+            NetworkCapabilities caps = manager.getNetworkCapabilities(manager.getActiveNetwork());
+            return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (Throwable t) {
+            // If the state cannot be read, try the live site anyway.
+            Log.w(TAG, "Could not read network state", t);
+            return true;
+        }
     }
 
     private boolean hasLocationPermission() {
