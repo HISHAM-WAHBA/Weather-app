@@ -1,0 +1,10 @@
+{
+  "name": "weather-app-apk-sync",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sync the web sources into the Android WebView assets",
+  "scripts": {
+    "sync": "node sync-assets.js",
+    "watch": "node sync-assets.js --watch"
+  }
+}

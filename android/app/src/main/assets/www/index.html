@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta
+      name="description"
+      content="Modern weather app with live, animated 7-day forecasts and bilingual interface."
+    />
+    <title>Weather app</title>
+    <link rel="icon" href="imgs/weather-mark.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- *========|> Font awesome library -->
+    <link rel="stylesheet" href="css/all.min.css" />
+    <!-- *========|> Bootstrap -->
+    <link rel="stylesheet" href="css/bootstrap.min.css" />
+    <!-- *========|> Main stylesheet -->
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body>
+    <nav class="navbar navbar-dark bg-dark">
+      <div class="container">
+        <div class="navLeft navbar-brand mb-0">
+          <div class="brand-logo">
+            <img src="imgs/weather-mark.svg" alt="Weather" />
+          </div>
+        </div>
+
+        <div class="nav-actions">
+          <button
+            id="langToggle"
+            class="lang-toggle"
+            type="button"
+            aria-label="Switch language"
+            title="Switch language"
+          >
+            <span id="langLabel">ع</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <section id="weatherSection" class="pb-5">
+      <!-- Animated weather backdrop (driven by the current condition) -->
+      <div id="weatherEffects" class="weather-effects" aria-hidden="true">
+        <div class="fx-sun"></div>
+        <div class="fx-moon"></div>
+        <div class="fx-stars"></div>
+        <div class="fx-cloud fx-cloud--1"></div>
+        <div class="fx-cloud fx-cloud--2"></div>
+        <div class="fx-cloud fx-cloud--3"></div>
+        <div class="fx-rain"></div>
+        <div class="fx-rain fx-rain--2"></div>
+        <div class="fx-snow"></div>
+        <div class="fx-fog"></div>
+        <div class="fx-lightning"></div>
+      </div>
+
+      <div class="search-area container mx-auto fade-in" style="--fade-delay: 0.05s">
+        <p class="search-eyebrow mb-2">
+          <span class="live-dot"></span>
+          <span data-i18n="liveAnywhere">Live weather, anywhere</span>
+        </p>
+        <form class="find-location search-form position-relative my-2">
+          <input
+            id="searchInput"
+            autocomplete="off"
+            type="text"
+            class="form-control shadow-none py-3 rounded-5 text-white"
+            placeholder="Search for a city..."
+            aria-label="Search for a city"
+            data-i18n-placeholder="searchPlaceholder"
+          />
+          <button
+            id="searchBtn"
+            type="submit"
+            class="btn btn-info text-white rounded-5 search-btn"
+          >
+            <i class="fa-solid fa-magnifying-glass me-2" aria-hidden="true"></i>
+            <span data-i18n="search">Search</span>
+          </button>
+        </form>
+        <p class="search-hint mb-0" data-i18n="searchHint">
+          Try “Cairo”, “London” or “Tokyo”
+        </p>
+      </div>
+
+      <div class="local-time-wrap container mx-auto fade-in" style="--fade-delay: 0.12s">
+        <div class="local-time-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="local-time__icon">
+              <i class="fa-regular fa-clock" aria-hidden="true"></i>
+            </span>
+            <div>
+              <span class="card-eyebrow">
+                <span class="live-dot"></span>
+                <span data-i18n="localTime">YOUR LOCAL TIME</span>
+              </span>
+              <div class="local-time__main d-flex align-items-baseline flex-wrap gap-2">
+                <span id="localClock" class="local-time__clock" dir="ltr">--:--:--</span>
+                <span id="localDate" class="local-time__date">—</span>
+              </div>
+            </div>
+          </div>
+          <span id="localZone" class="local-time__zone" dir="ltr">—</span>
+        </div>
+      </div>
+
+      <div class="container position-relative">
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading-overlay d-none">
+          <div class="spinner-box">
+            <div class="custom-spinner"></div>
+            <p class="mt-3 mb-0 loading-text" data-i18n="loading">
+              Fetching weather data...
+            </p>
+          </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div
+          id="errorAlert"
+          class="alert alert-danger error-alert d-none mx-auto mb-4"
+          role="alert"
+          aria-live="polite"
+        >
+          <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation fs-4" aria-hidden="true"></i>
+            <div>
+              <strong data-i18n="oops">Oops!</strong>
+              <span id="errorMessage" data-i18n="genericError">Something went wrong.</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="forecastContainer" class="transition-opacity">
+          <div class="row g-4 align-items-stretch">
+            <!-- &>>>>>>>>>>>>>>>>>>>>>>Today card<<<<<<<<<<<<<<<<<<<<<< -->
+            <div class="col-lg-4 d-flex">
+              <div
+                class="inner h-100 w-100 d-flex flex-column text-white todayDate card-wrapper position-relative"
+                id="todayDate"
+              >
+                <!-- Skeleton overlay for Today card -->
+                <div id="todaySkeleton" class="skeleton-overlay d-none p-0 m-0">
+                  <div
+                    class="d-flex justify-content-between align-items-center px-3 py-3"
+                  >
+                    <div class="skeleton skeleton-text w-25"></div>
+                    <div class="skeleton skeleton-text w-20"></div>
+                  </div>
+                  <div
+                    class="today-body px-4 flex-grow-1 d-flex flex-column justify-content-between py-4"
+                  >
+                    <div>
+                      <div class="skeleton skeleton-text-lg w-30 mb-4"></div>
+                      <div
+                        class="d-flex justify-content-between align-items-center mb-4"
+                      >
+                        <div class="skeleton skeleton-text-xl"></div>
+                        <div class="skeleton skeleton-img"></div>
+                      </div>
+                      <div class="skeleton skeleton-text-lg w-40 mb-3"></div>
+                    </div>
+                    <div class="d-flex pb-3 todayFooter gap-4 flex-wrap">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="skeleton skeleton-footer-dot"></div>
+                        <div class="skeleton skeleton-footer-text"></div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="skeleton skeleton-footer-dot"></div>
+                        <div class="skeleton skeleton-footer-text"></div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="skeleton skeleton-footer-dot"></div>
+                        <div class="skeleton skeleton-footer-text w-50"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="d-flex justify-content-between align-items-center today-head px-3 py-3"
+                >
+                  <span class="card-eyebrow" data-i18n="currentWeather">CURRENT WEATHER</span>
+                  <span class="today-date-pill">
+                    <span id="dayNumber">26</span>
+                    <span id="todayMonthOfCity">march</span>
+                  </span>
+                </div>
+
+                <div
+                  class="today-body px-4 flex-grow-1 d-flex flex-column justify-content-between"
+                >
+                  <div>
+                    <p class="today-day mb-1" id="dayName">Saturday</p>
+                    <p class="py-2 fs-5" id="todayLocation">Cairo</p>
+                    <div
+                      class="d-flex justify-content-between align-items-center"
+                    >
+                      <span class="today-temperature" id="tempWrapper">
+                        <span id="todayTemp">25</span><sup>o</sup>
+                        <span class="unit">C</span>
+                      </span>
+                      <img
+                        id="todayConditionImg"
+                        src="imgs/weather-mark.svg"
+                        alt="Weather icon"
+                      />
+                    </div>
+                    <p id="todayWeatherDescription" class="today-description">
+                      clear
+                    </p>
+                  </div>
+                  <div class="d-flex pb-2 todayFooter">
+                    <div class="d-flex align-items-center gap-2 me-3">
+                      <i class="fa-solid fa-umbrella" aria-hidden="true"></i>
+                      <p class="mb-0" id="todayHumidity">20</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 me-3">
+                      <i class="fa-solid fa-wind" aria-hidden="true"></i>
+                      <p class="mb-0" id="todayWind">18</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="fa-solid fa-compass" aria-hidden="true"></i>
+                      <p class="mb-0" id="todayWindDirection">East</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- &>>>>>>>>>>>>>>>>>>>>>>Today card<<<<<<<<<<<<<<<<<<<<<< -->
+
+            <!-- *>>>>>>>>>>>>>>>>>>>>>>Forecast panel<<<<<<<<<<<<<<<<<<<<<< -->
+            <div class="col-lg-8 d-flex">
+              <div class="forecast-panel w-100 card-wrapper position-relative">
+                <div
+                  class="forecast-head d-flex justify-content-between align-items-center flex-wrap gap-2"
+                >
+                  <div>
+                    <span class="card-eyebrow"
+                      ><span class="live-dot"></span>
+                      <span id="forecastRangeLabel" data-i18n="forecastOutlook">7-DAY OUTLOOK</span></span
+                    >
+                    <h2 class="forecast-title mb-0" data-i18n="daysAhead">The days ahead</h2>
+                  </div>
+                  <span id="forecastLocation" class="forecast-location">—</span>
+                </div>
+
+                <!-- Forecast cards are generated from the API response -->
+                <div id="forecastGrid" class="forecast-grid"></div>
+
+                <p class="forecast-note mb-0">
+                  <i class="fa-regular fa-lightbulb me-2" aria-hidden="true"></i>
+                  <span data-i18n="forecastNote"
+                    >Temps shown as high / low. Bars reflect the daily range.</span
+                  >
+                </p>
+              </div>
+            </div>
+            <!-- *>>>>>>>>>>>>>>>>>>>>>>Forecast panel<<<<<<<<<<<<<<<<<<<<<< -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer id="contact" class="py-5">
+      <div class="container fade-in" style="--fade-delay: 0.2s">
+        <div class="row align-items-center gy-4">
+          <div class="col-12">
+            <div class="footer-brand mb-4">
+              <img src="imgs/weather-mark.svg" alt="Weather" />
+            </div>
+            <div class="footer-contact">
+              <a href="mailto:hishamwahba7@gmail.com" class="contact-item">
+                <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                <span>hishamwahba7@gmail.com</span>
+              </a>
+              <a
+                href="https://wa.me/201553579114"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="contact-item"
+              >
+                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+                <span dir="ltr">+20 155 357 9114</span>
+              </a>
+              <a
+                href="https://www.facebook.com/HISHAM.WAHBA.77"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                class="contact-item"
+              >
+                <i class="fa-brands fa-facebook-f" aria-hidden="true"></i>
+                <span>Facebook</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="footer-bottom pt-3">
+              <p class="mb-0 text-white" data-i18n-html="copyright">
+                Copyright 2025. Designed by <strong>Hisham Wahba.</strong> All
+                rights reserved ©
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ?========|> Boostrap Js file -->
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <!-- ?========|> Main Js File -->
+    <script src="js/index.js"></script>
+  </body>
+</html>

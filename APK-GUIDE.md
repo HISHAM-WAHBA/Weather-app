@@ -1,0 +1,45 @@
+# دليل تطبيق الأندرويد (APK)
+
+## الفكرة
+التطبيق ليس إعادة كتابة للمشروع — هو **WebView** يحمل نفس موقعك على Vercel:
+`https://weather-app-sooty-phi-31.vercel.app`
+
+يعني أي تعديل تعمله في `index.html` / `css` / `js` وتعمل push للريبو:
+- الموقع بتاعك على Vercel يتحدث تلقائياً.
+- التطبيق يحمل نفس الرابط، فالتعديل يظهر فيه **بدون ما تعمل APK جديد**.
+
+النسخة في `android/app/src/main/assets/www/` هي نسخة احتياطية بتستخدم لو النت قطع.
+
+## أين أعدل الكود؟
+دائماً في **جذر المشروع** زي ما اعتدت:
+- `index.html`
+- `css/style.css`
+- `js/index.js`
+- `imgs/` و `webfonts/`
+
+لو حابب تحدّث النسخة المحلية الاحتياطية أيضاً:
+```bash
+npm run sync     # نسخة واحدة
+npm run watch    # مراقبة تلقائية أثناء التطوير (Ctrl+C للإيقاف)
+```
+
+## كيف أبني APK؟
+1. اعمل commit و push على `main` (أو اضغط Run workflow من تبويب Actions).
+2. افتح **Actions → Build Weather APK** و حمّل الـ artifact `weather-app-debug-apk`.
+3. افتح الـ zip واستخرج `app-debug.apk` وارفعه على منصتك أو ثبّته على جهازك.
+
+> البناء مجاني بالكامل على GitHub Actions — مش محتاج Android Studio ولا JDK على جهازك.
+
+## أين أغيّر رابط الموقع أو اسم التطبيق؟
+- الرابط: `android/app/src/main/java/com/hishamwahba/weatherapp/MainActivity.java` → الثابت `REMOTE_URL`.
+- اسم التطبيق: `android/app/src/main/res/values/strings.xml` → `app_name`.
+- الأيقونة: `android/app/src/main/res/mipmap-*/ic_launcher.png`.
+
+## صلاحيات التطبيق
+- `INTERNET`: لجلب الطقس من Open-Meteo وتحميل الموقع.
+- `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`: عشان يفتح المدينة تلقائياً زي المتصفح (بيطلب إذن من المستخدم أول مرة).
+
+## ملاحظات
+- APK بتوقيع debug: قابل للتثبيت مباشرة (sideload)، ومناسب للنشر على منصتك الخاصة. لو احتجت توقيع ثابت بعدين نضيف keystore.
+- الحد الأدنى أندرويد 6.0 (API 23)، والهدف API 35.
+- زر الرجوع بيرجع لصفحة سابقة جوّه التطبيق، وبيخرج منه لو مفيش صفحات سابقة.
