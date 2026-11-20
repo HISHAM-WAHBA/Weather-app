@@ -4,24 +4,16 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.DownloadManager;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -34,12 +26,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import androidx.core.content.FileProvider;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
@@ -70,38 +58,8 @@ public class MainActivity extends Activity {
     private boolean splashDismissScheduled;
     private String appSkinJs;
 
-    // Self-update (sideloaded app, no Play Store involved).
-    private long pendingDownloadId = -1L;
+    // Update prompt. The browser/download manager handles the APK from here.
     private boolean updateDialogShown;
-    private boolean downloadReceiverRegistered;
-    private final BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
-            if (id != pendingDownloadId) return;
-            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            boolean ok = false;
-            if (manager != null) {
-                DownloadManager.Query query = new DownloadManager.Query().setFilterById(id);
-                try (Cursor cursor = manager.query(query)) {
-                    if (cursor != null && cursor.moveToFirst()) {
-                        int column = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-                        ok = column >= 0
-                                && cursor.getInt(column) == DownloadManager.STATUS_SUCCESSFUL;
-                    }
-                } catch (Throwable t) {
-                    Log.e(TAG, "Could not read download status", t);
-                }
-            }
-            unregisterDownloadReceiver();
-            if (ok) {
-                showInstallReadyDialog();
-            } else {
-                Toast.makeText(MainActivity.this, R.string.update_download_failed,
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-    };
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -202,7 +160,7 @@ public class MainActivity extends Activity {
             });
 
             loadStartUrl();
-            if (!offerPendingInstall()) checkForUpdate();
+            checkForUpdate();
         } catch (Throwable t) {
             Log.e(TAG, "Startup failed", t);
             showFatalError(t);
@@ -291,134 +249,37 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Returns true when a previously downloaded update is waiting to be installed. */
-    private boolean offerPendingInstall() {
-        File apk = downloadedApk();
-        if (apk == null || !apk.exists() || apk.length() < 100000L) return false;
-        showInstallReadyDialog();
-        return true;
-    }
-
     /** Looks for a newer signed APK published as a GitHub Release. */
     private void checkForUpdate() {
         UpdateChecker.check(this, release -> {
             if (release == null || isFinishing() || updateDialogShown) return;
             updateDialogShown = true;
             String notes = release.notes == null ? "" : release.notes.trim();
-            if (notes.length() > 200) notes = notes.substring(0, 200) + "…";
+            if (notes.length() > 160) notes = notes.substring(0, 160) + "…";
             String message = getString(R.string.update_message, release.version)
                     + (notes.isEmpty() ? "" : "\n\n" + notes);
             new AlertDialog.Builder(this)
                     .setTitle(R.string.update_title)
                     .setMessage(message)
                     .setPositiveButton(R.string.update_now,
-                            (dialog, which) -> startUpdateDownload(release.downloadUrl))
+                            (dialog, which) -> openReleaseInBrowser(release.downloadUrl))
                     .setNegativeButton(R.string.update_later, null)
                     .show();
         });
     }
 
-    private void startUpdateDownload(String url) {
-        if (!canInstallPackages()) {
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.update_allow_title)
-                    .setMessage(R.string.update_allow_message)
-                    .setPositiveButton(R.string.update_open_settings, (dialog, which) -> {
-                        try {
-                            Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
-                            settings.setData(Uri.parse("package:" + getPackageName()));
-                            startActivity(settings);
-                        } catch (Throwable t) {
-                            Toast.makeText(this, R.string.update_allow_message, Toast.LENGTH_LONG).show();
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
-            return;
-        }
+    /**
+     * Let the browser/download manager handle the APK. This keeps the app free of
+     * the install-package permission, which some phone security suites reject.
+     */
+    private void openReleaseInBrowser(String url) {
         try {
-            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            if (manager == null) return;
-            File old = downloadedApk();
-            if (old != null && old.exists()) old.delete();
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-            request.setTitle(getString(R.string.app_name));
-            request.setDescription(getString(R.string.update_downloading));
-            request.setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalFilesDir(
-                    this, Environment.DIRECTORY_DOWNLOADS, UpdateChecker.APK_NAME);
-            pendingDownloadId = manager.enqueue(request);
-            registerDownloadReceiver();
-            Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show();
-        } catch (Throwable t) {
-            Log.e(TAG, "Could not start update download", t);
-            Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private boolean canInstallPackages() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-                || getPackageManager().canRequestPackageInstalls();
-    }
-
-    private void registerDownloadReceiver() {
-        if (downloadReceiverRegistered) return;
-        try {
-            registerReceiver(downloadReceiver,
-                    new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-            downloadReceiverRegistered = true;
-        } catch (Throwable t) {
-            Log.e(TAG, "Could not register download receiver", t);
-        }
-    }
-
-    private void unregisterDownloadReceiver() {
-        if (!downloadReceiverRegistered) return;
-        try {
-            unregisterReceiver(downloadReceiver);
-        } catch (Throwable ignored) {
-        }
-        downloadReceiverRegistered = false;
-    }
-
-    private void showInstallReadyDialog() {
-        if (isFinishing() || updateDialogShown) return;
-        updateDialogShown = true;
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.update_ready_title)
-                .setMessage(R.string.update_ready_message)
-                .setPositiveButton(R.string.update_install,
-                        (dialog, which) -> installDownloadedApk())
-                .setNegativeButton(R.string.update_discard, (dialog, which) -> {
-                    File apk = downloadedApk();
-                    if (apk != null && apk.exists()) apk.delete();
-                })
-                .show();
-    }
-
-    private void installDownloadedApk() {
-        try {
-            File apk = downloadedApk();
-            if (apk == null || !apk.exists()) {
-                Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show();
-                return;
-            }
-            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
-            Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
-            intent.setDataAndType(uri, "application/vnd.android.package-archive");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
         } catch (Throwable t) {
-            Log.e(TAG, "Could not install update", t);
-            Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show();
+            Log.e(TAG, "Could not open release link", t);
         }
-    }
-
-    private File downloadedApk() {
-        File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        return dir == null ? null : new File(dir, UpdateChecker.APK_NAME);
     }
 
     /** Keep site navigation inside the WebView; open external links in a browser. */
@@ -503,9 +364,4 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        unregisterDownloadReceiver();
-        super.onDestroy();
-    }
 }

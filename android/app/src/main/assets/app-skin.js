@@ -15,15 +15,18 @@
     style.id = "appSkinStyle";
     style.textContent = [
       ".app-socials{display:flex;align-items:center;gap:8px;margin-inline-end:6px}",
-      ".app-social{width:38px;height:38px;padding:0;border-radius:50%;display:grid;place-items:center;",
+      ".app-social{width:42px;height:42px;min-width:42px;flex:0 0 42px;box-sizing:border-box;",
+      "padding:0;border-radius:50%;display:grid;place-items:center;",
       "text-decoration:none;border:1px solid rgba(56,189,248,.35);background:rgba(56,189,248,.1);",
       "transition:transform .25s ease,background .25s ease,border-color .25s ease}",
-      ".app-social i{color:#67e8f9;font-size:15px;line-height:1}",
+      ".app-social i{color:#67e8f9;font-size:16px;line-height:1}",
       ".app-social:hover{background:rgba(56,189,248,.2);border-color:rgba(56,189,248,.65)}",
       ".app-social:active{transform:scale(.92)}",
       "footer#contact,footer{display:none!important}",
-      "@media(max-width:420px){.app-socials{gap:5px}.app-social{width:33px;height:33px}}",
-      "@media(max-width:340px){.brand-logo{width:52px;height:52px}.app-social{width:30px;height:30px}}"
+      "@media(max-width:420px){.app-socials{gap:6px}.app-social{width:38px;height:38px;min-width:38px;flex-basis:38px}}",
+      "@media(max-width:340px){.brand-logo{width:48px;height:48px;flex-basis:48px}",
+      ".lang-toggle{width:44px;height:44px;min-width:44px;min-height:44px;flex-basis:44px}",
+      ".app-social{width:34px;height:34px;min-width:34px;flex-basis:34px}}"
     ].join("");
     (document.head || document.documentElement).appendChild(style);
   }
