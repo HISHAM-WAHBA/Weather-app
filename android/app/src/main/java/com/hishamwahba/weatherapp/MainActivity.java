@@ -10,7 +10,9 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -23,6 +25,10 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Thin native shell around the existing web app.
@@ -41,6 +47,15 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
     private boolean usedOfflineFallback = false;
+
+    // App-only launch screen and visual skin (never sent to the website).
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private View splashOverlay;
+    private View splashLogo;
+    private View splashTitle;
+    private long splashStartedAt;
+    private boolean splashDismissScheduled;
+    private String appSkinJs;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -70,6 +85,8 @@ public class MainActivity extends Activity {
             }
             // Framework WebView state restoration crashes on some devices — start fresh.
             webView.setSaveEnabled(false);
+            initSplash();
+            appSkinJs = readAssetFile("app-skin.js");
 
             WebSettings settings = webView.getSettings();
             settings.setJavaScriptEnabled(true);       // the weather app is JS-driven
@@ -87,6 +104,12 @@ public class MainActivity extends Activity {
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     return handleUrl(view, request.getUrl());
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    injectAppSkin(view);
+                    dismissSplash();
                 }
 
                 @Override
@@ -142,6 +165,7 @@ public class MainActivity extends Activity {
     /** Displays the reason for a crash so it can be reported without logcat. */
     private void showFatalError(Throwable t) {
         try {
+            splashOverlay = null;
             TextView view = new TextView(this);
             String report = Log.getStackTraceString(t);
             if (report == null || report.isEmpty()) report = String.valueOf(t);
@@ -154,6 +178,69 @@ public class MainActivity extends Activity {
             view.setBackgroundColor(Color.rgb(8, 13, 28));
             setContentView(view);
         } catch (Throwable ignored) {
+        }
+    }
+
+    /** Shows the logo briefly while the weather page is loading. */
+    private void initSplash() {
+        splashStartedAt = SystemClock.uptimeMillis();
+        splashOverlay = findViewById(R.id.splashOverlay);
+        splashLogo = findViewById(R.id.splashLogo);
+        splashTitle = findViewById(R.id.splashTitle);
+        if (splashLogo != null) {
+            splashLogo.setAlpha(0f);
+            splashLogo.setScaleX(0.86f);
+            splashLogo.setScaleY(0.86f);
+            splashLogo.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                    .setStartDelay(100).setDuration(650).start();
+        }
+        if (splashTitle != null) {
+            splashTitle.setAlpha(0f);
+            splashTitle.setTranslationY(16f);
+            splashTitle.animate().alpha(1f).translationY(0f)
+                    .setStartDelay(280).setDuration(600).start();
+        }
+        // A blocked/slow page must never leave the splash on screen forever.
+        mainHandler.postDelayed(() -> dismissSplash(), 4500);
+    }
+
+    /** Fades the splash out, respecting a short minimum display time. */
+    private void dismissSplash() {
+        if (splashOverlay == null || splashDismissScheduled) return;
+        splashDismissScheduled = true;
+        long remaining = Math.max(0, 1500 - (SystemClock.uptimeMillis() - splashStartedAt));
+        mainHandler.postDelayed(() -> {
+            if (splashOverlay == null) return;
+            splashOverlay.animate().alpha(0f).setDuration(420).withEndAction(() -> {
+                if (splashOverlay != null) {
+                    splashOverlay.setVisibility(View.GONE);
+                    splashOverlay = null;
+                }
+            }).start();
+        }, remaining);
+    }
+
+    /** Reads a small JS file bundled with the app. */
+    private String readAssetFile(String name) {
+        StringBuilder text = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(getAssets().open(name), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) text.append(line).append('\n');
+        } catch (Throwable t) {
+            Log.e(TAG, "Could not read asset: " + name, t);
+            return "";
+        }
+        return text.toString();
+    }
+
+    /** App-only tweaks: remove footer, put contacts in the navbar. */
+    private void injectAppSkin(WebView view) {
+        if (view == null || appSkinJs == null || appSkinJs.isEmpty()) return;
+        try {
+            view.evaluateJavascript(appSkinJs, null);
+        } catch (Throwable t) {
+            Log.e(TAG, "App skin injection failed", t);
         }
     }
 

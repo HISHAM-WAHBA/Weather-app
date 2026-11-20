@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Weather App</string>
+    <string name="splash_title">weather app</string>
+    <string name="splash_logo_desc">Weather app logo</string>
 </resources>

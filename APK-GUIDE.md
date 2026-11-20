@@ -35,6 +35,12 @@ npm run watch    # مراقبة تلقائية أثناء التطوير (Ctrl+C
 - اسم التطبيق: `android/app/src/main/res/values/strings.xml` → `app_name`.
 - الأيقونة: `android/app/src/main/res/mipmap-*/ic_launcher.png`.
 
+## تعديلات التطبيق فقط (بدون الموقع)
+- **شاشة البداية (Splash):** اللوجو وكلمة `weather app` في `res/layout/activity_main.xml` و`res/values/strings.xml`.
+- **إخفاء الـ footer ونقل التواصل للـ navbar:** `android/app/src/main/assets/app-skin.js`.
+  التطبيق يحقنه في الصفحة بعد التحميل، فالموقع نفسه ما يتعدّلش والـ auto-update يفضل شغال.
+- الملف `app-skin.js` خارج مجلد `www`، فـ `npm run sync` مش هيشيله.
+
 ## صلاحيات التطبيق
 - `INTERNET`: لجلب الطقس من Open-Meteo وتحميل الموقع.
 - `ACCESS_NETWORK_STATE`: لمعرفة حالة الاتصال قبل تحميل الموقع.
