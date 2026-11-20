@@ -108,11 +108,19 @@ public final class UpdateChecker {
         for (int i = 0; i < assets.length(); i++) {
             JSONObject asset = assets.optJSONObject(i);
             if (asset == null) continue;
-            if (APK_NAME.equals(asset.optString("name"))) {
+            // gh release upload turns "weather app.apk" into "weather.app.apk",
+            // while the label keeps the original name — accept either.
+            if (isApkName(asset.optString("name")) || isApkName(asset.optString("label"))) {
                 return asset.optString("browser_download_url");
             }
         }
         return null;
+    }
+
+    private static boolean isApkName(String value) {
+        if (value == null) return false;
+        String name = value.trim().toLowerCase();
+        return name.equals(APK_NAME.toLowerCase()) || name.equals("weather.app.apk");
     }
 
     private static boolean isNewer(String candidate, String current) {
