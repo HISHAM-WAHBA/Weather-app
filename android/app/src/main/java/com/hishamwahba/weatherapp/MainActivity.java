@@ -101,8 +101,11 @@ public class MainActivity extends Activity {
             settings.setSupportZoom(false);
             settings.setBuiltInZoomControls(false);
             settings.setDisplayZoomControls(false);
-            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+            // Always fetch the live Vercel files so website edits show up at once.
+            settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
             webView.setBackgroundColor(0xFF080D1C);
+            webView.setVerticalScrollBarEnabled(false);
+            webView.setHorizontalScrollBarEnabled(false);
 
             webView.setWebViewClient(new WebViewClient() {
                 @Override
@@ -243,6 +246,8 @@ public class MainActivity extends Activity {
     private void injectAppSkin(WebView view) {
         if (view == null || appSkinJs == null || appSkinJs.isEmpty()) return;
         try {
+            view.evaluateJavascript(
+                    "window.APP_VERSION=\"" + BuildConfig.VERSION_NAME + "\";", null);
             view.evaluateJavascript(appSkinJs, null);
         } catch (Throwable t) {
             Log.e(TAG, "App skin injection failed", t);

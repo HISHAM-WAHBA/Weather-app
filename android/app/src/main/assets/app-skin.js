@@ -23,12 +23,27 @@
       ".app-social:hover{background:rgba(56,189,248,.2);border-color:rgba(56,189,248,.65)}",
       ".app-social:active{transform:scale(.92)}",
       "footer#contact,footer{display:none!important}",
+      "html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}",
+      "html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}",
+      "body{padding-bottom:28px!important}",
+      "#appVersionBadge{position:fixed;left:0;right:0;bottom:6px;z-index:9999;text-align:center;",
+      "font:500 11px/1.2 Poppins,sans-serif;letter-spacing:.4px;color:rgba(165,180,207,.78);",
+      "text-shadow:0 1px 4px rgba(0,0,0,.75);pointer-events:none;user-select:none}",
       "@media(max-width:420px){.app-socials{gap:6px}.app-social{width:38px;height:38px;min-width:38px;flex-basis:38px}}",
       "@media(max-width:340px){.brand-logo{width:48px;height:48px;flex-basis:48px}",
       ".lang-toggle{width:44px;height:44px;min-width:44px;min-height:44px;flex-basis:44px}",
       ".app-social{width:34px;height:34px;min-width:34px;flex-basis:34px}}"
     ].join("");
     (document.head || document.documentElement).appendChild(style);
+  }
+
+  // 2b) Version name pinned to the very bottom of the app (never the website).
+  var version = String(window.APP_VERSION || "").trim();
+  if (version && !document.getElementById("appVersionBadge")) {
+    var badge = document.createElement("div");
+    badge.id = "appVersionBadge";
+    badge.textContent = "weather app v" + version;
+    (document.body || document.documentElement).appendChild(badge);
   }
 
   // 3) Put the three contact links between the logo and the language button.

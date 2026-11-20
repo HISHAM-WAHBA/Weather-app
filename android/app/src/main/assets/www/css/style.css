@@ -174,8 +174,10 @@ nav.bg-dark {
   box-sizing: border-box;
   padding: 0;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   border: 1px solid rgba(56, 189, 248, 0.35);
   background: rgba(56, 189, 248, 0.1);
   color: var(--text-bright);
@@ -191,6 +193,19 @@ nav.bg-dark {
     border-color 0.3s ease,
     color 0.3s ease,
     transform 0.3s ease;
+}
+
+/* Keeps E / ع optically centred in the circle in both LTR and RTL. */
+.lang-toggle #langLabel {
+  display: block;
+  width: 100%;
+  line-height: 1;
+  text-align: center;
+  transform: translateY(0.5px);
+}
+
+html[dir="rtl"] .lang-toggle #langLabel {
+  transform: translateY(0);
 }
 
 .lang-toggle:hover {

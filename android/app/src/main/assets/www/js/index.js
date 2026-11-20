@@ -11,6 +11,7 @@ const searchBtn = document.querySelector("#searchBtn");
 const localClock = document.querySelector("#localClock");
 const localDateEl = document.querySelector("#localDate");
 const localZone = document.querySelector("#localZone");
+const localTimeLabel = document.querySelector('[data-i18n="localTime"]');
 const loadingSpinner = document.querySelector("#loadingSpinner");
 const errorAlert = document.querySelector("#errorAlert");
 const errorMessage = document.querySelector("#errorMessage");
@@ -45,7 +46,8 @@ const todayWindDirection = document.querySelector("#todayWindDirection");
 const I18N = {
   en: {
     liveAnywhere: "Live weather, anywhere",
-    localTime: "YOUR LOCAL TIME",
+    localTime: "LOCAL TIME",
+    timeIn: "LOCAL TIME IN {city}",
     searchPlaceholder: "Search for a city...",
     searchHint: "Try “Cairo”, “London” or “Tokyo”",
     search: "Search",
@@ -74,6 +76,7 @@ const I18N = {
   ar: {
     liveAnywhere: "طقس مباشر، في أي مكان",
     localTime: "الوقت المحلي",
+    timeIn: "الوقت في {city}",
     searchPlaceholder: "ابحث عن مدينة...",
     searchHint: "جرّب «القاهرة» أو «لندن» أو «طوكيو»",
     search: "بحث",
@@ -283,45 +286,70 @@ function categoryFromCode(code) {
   return "clear";
 }
 
-// ================ Viewer's local time ================
+// ================ Searched city's local time ================
+function activeTimeZone() {
+  const zone = weatherData?.location?.timezone;
+  if (zone) {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: zone }).format(new Date());
+      return zone;
+    } catch (err) {
+      // Unknown zone on an older WebView — fall back to the device zone.
+    }
+  }
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+}
+
+function timeZoneOffsetLabel(zone, now) {
+  const seconds = Number(weatherData?.location?.utcOffsetSeconds);
+  if (Number.isFinite(seconds)) {
+    const sign = seconds < 0 ? "-" : "+";
+    const abs = Math.abs(seconds);
+    const hours = Math.floor(abs / 3600);
+    const minutes = Math.floor((abs % 3600) / 60);
+    return `GMT${sign}${hours}${minutes ? ":" + String(minutes).padStart(2, "0") : ""}`;
+  }
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    }).formatToParts(now);
+    return parts.find((part) => part.type === "timeZoneName")?.value || "GMT";
+  } catch (err) {
+    return "GMT";
+  }
+}
+
 function renderLocalTime() {
-  if (!localClock && !localDateEl && !localZone) return;
+  if (!localClock && !localDateEl && !localZone && !localTimeLabel) return;
   const now = new Date();
   const locale = dateLocale();
+  const zone = activeTimeZone();
+  const zoned = (options) => (zone ? { ...options, timeZone: zone } : options);
+
+  if (localTimeLabel) {
+    const city = weatherData?.location?.name;
+    localTimeLabel.textContent = city ? t("timeIn", { city }) : t("localTime");
+  }
 
   if (localClock) {
-    localClock.textContent = new Intl.DateTimeFormat(locale, {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }).format(now);
+    localClock.textContent = new Intl.DateTimeFormat(
+      locale,
+      zoned({ hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+    ).format(now);
   }
 
   if (localDateEl) {
-    localDateEl.textContent = new Intl.DateTimeFormat(locale, {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(now);
+    localDateEl.textContent = new Intl.DateTimeFormat(
+      locale,
+      zoned({ weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    ).format(now);
   }
 
   if (localZone) {
-    try {
-      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Local";
-      const offset =
-        new Intl.DateTimeFormat("en-US", {
-          timeZone: zone,
-          timeZoneName: "shortOffset",
-        })
-          .formatToParts(now)
-          .find((part) => part.type === "timeZoneName")?.value || "GMT";
-      localZone.textContent = `${offset} · ${zone.replaceAll("_", " ")}`;
-      localZone.title = zone;
-    } catch (err) {
-      localZone.textContent = "Local";
-    }
+    const name = zone ? zone.replaceAll("_", " ") : "Local";
+    localZone.textContent = `${timeZoneOffsetLabel(zone, now)} · ${name}`;
+    localZone.title = zone || "Local";
   }
 }
 
@@ -463,6 +491,9 @@ function normalizeForecast(raw, name, country, lang) {
       name,
       country,
       localtime: `${localDate} ${localHour}`,
+      // Open-Meteo resolves these from the coordinates (timezone=auto).
+      timezone: raw.timezone || "",
+      utcOffsetSeconds: Number(raw.utc_offset_seconds) || 0,
     },
     current: {
       temp_c: current.temperature_2m,
@@ -561,6 +592,7 @@ async function startApp(city, force = false) {
       replayCardAnimations();
       todayWeather();
       forecastWeather();
+      renderLocalTime();
     } else {
       showError(weatherData.error.message || t("errCity"));
     }
