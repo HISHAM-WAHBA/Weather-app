@@ -3,4 +3,19 @@
     <string name="app_name">Weather App</string>
     <string name="splash_title">weather app</string>
     <string name="splash_logo_desc">Weather app logo</string>
+
+    <string name="update_title">New version available</string>
+    <string name="update_message">Version %1$s is ready. Update now?</string>
+    <string name="update_now">Update now</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_download_failed">Could not download the update. Please try again.</string>
+    <string name="update_ready_title">Update downloaded</string>
+    <string name="update_ready_message">The new version is ready. Tap Install to finish.</string>
+    <string name="update_install">Install</string>
+    <string name="update_discard">Discard</string>
+    <string name="update_allow_title">Allow installation</string>
+    <string name="update_allow_message">Enable \"Install unknown apps\" for Weather App to install updates, then come back and tap Update now.</string>
+    <string name="update_open_settings">Open settings</string>
+    <string name="update_no_installer">No installer app found on this device.</string>
 </resources>

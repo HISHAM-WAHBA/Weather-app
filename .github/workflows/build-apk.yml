@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -51,3 +51,20 @@ jobs:
           name: weather-app
           path: 'android/app/build/outputs/apk/release/weather app.apk'
           retention-days: 30
+
+      # The app checks /releases/latest, so every build must publish the APK.
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="android/app/build/outputs/apk/release/weather app.apk"
+          VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" android/app/build.gradle | head -n 1)
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#weather app.apk" --clobber
+          else
+            gh release create "$TAG" "$APK#weather app.apk" \
+              --title "Weather App $TAG" \
+              --notes "Signed release APK. Installs over the previous version." \
+              --target "$GITHUB_SHA"
+          fi
