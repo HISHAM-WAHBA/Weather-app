@@ -97,7 +97,8 @@ public class MainActivity extends Activity {
             if (ok) {
                 showInstallReadyDialog();
             } else {
-                Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, R.string.update_download_failed,
+                        Toast.LENGTH_LONG).show();
             }
         }
     };
