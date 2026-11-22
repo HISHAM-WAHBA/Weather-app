@@ -78,6 +78,9 @@ android {
 dependencies {
     // Daily 7 AM / 10 PM weather notifications (survives reboot via WorkManager).
     implementation 'androidx.work:work-runtime:2.9.1'
+    // WorkManager's Worker signature references this type; declare it explicitly
+    // so javac always sees it on the compile classpath.
+    implementation 'com.google.guava:listenablefuture:1.0'
     // AdMob banner + interstitial, with UMP consent dialog for GDPR/CCPA.
     implementation 'com.google.android.gms:play-services-ads:24.4.0'
     implementation 'com.google.android.ump:user-messaging-platform:2.2.0'
