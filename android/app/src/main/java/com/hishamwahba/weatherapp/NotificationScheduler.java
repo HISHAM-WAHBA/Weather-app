@@ -1,23 +1,22 @@
 package com.hishamwahba.weatherapp;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
-
 import java.util.Calendar;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Schedules the next weather notification at 7:00 AM or 10:00 PM (device time).
- * After each notification the worker calls scheduleNext() again, so the cycle
- * keeps going. WorkManager also restores pending work after a reboot.
+ * Uses the framework AlarmManager — no background library needed. The alarm
+ * re-arms itself after each notification and after a reboot.
  */
 final class NotificationScheduler {
     private static final String TAG = "WeatherApp";
-    private static final String UNIQUE_WORK = "daily_weather_notification";
+    private static final int REQUEST_CODE = 2001;
     private static final int MORNING_HOUR = 7;
     private static final int NIGHT_HOUR = 22;
 
@@ -26,15 +25,22 @@ final class NotificationScheduler {
 
     static void scheduleNext(Context context) {
         try {
-            WorkManager manager = WorkManager.getInstance(context.getApplicationContext());
             if (!Prefs.notificationsEnabled(context)) {
-                manager.cancelUniqueWork(UNIQUE_WORK);
+                cancel(context);
                 return;
             }
-            OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(WeatherWorker.class)
-                    .setInitialDelay(delayToNextSlot(), TimeUnit.MILLISECONDS)
-                    .build();
-            manager.enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.REPLACE, request);
+            AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarms == null) return;
+            long when = nextSlotMillis();
+            PendingIntent pending = pendingIntent(context);
+            // setAndAllowWhileIdle is inexact but has no exact-alarm permission
+            // requirement, so it is safe for Google Play and works in Doze.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pending);
+            } else {
+                alarms.set(AlarmManager.RTC_WAKEUP, when, pending);
+            }
+            Log.i(TAG, "Next weather notification scheduled");
         } catch (Throwable t) {
             Log.w(TAG, "Could not schedule weather notification", t);
         }
@@ -42,14 +48,22 @@ final class NotificationScheduler {
 
     static void cancel(Context context) {
         try {
-            WorkManager.getInstance(context.getApplicationContext()).cancelUniqueWork(UNIQUE_WORK);
+            AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarms != null) alarms.cancel(pendingIntent(context));
         } catch (Throwable t) {
             Log.w(TAG, "Could not cancel weather notification", t);
         }
     }
 
-    /** Milliseconds from now to the next 7:00 or 22:00, always in the future. */
-    private static long delayToNextSlot() {
+    private static PendingIntent pendingIntent(Context context) {
+        Intent intent = new Intent(context, WeatherAlarmReceiver.class);
+        intent.setAction("com.hishamwahba.weatherapp.DAILY_WEATHER");
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags);
+    }
+
+    /** Absolute time of the next 7:00 or 22:00, always in the future. */
+    private static long nextSlotMillis() {
         long now = System.currentTimeMillis();
         Calendar next = Calendar.getInstance();
         next.set(Calendar.HOUR_OF_DAY, MORNING_HOUR);
@@ -64,6 +78,6 @@ final class NotificationScheduler {
                 next.set(Calendar.HOUR_OF_DAY, MORNING_HOUR);
             }
         }
-        return Math.max(next.getTimeInMillis() - now, TimeUnit.MINUTES.toMillis(1));
+        return next.getTimeInMillis();
     }
 }

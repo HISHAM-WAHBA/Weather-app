@@ -9,10 +9,6 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.work.Worker;
-import androidx.work.WorkerParameters;
-
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -23,30 +19,24 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /** Fetches the weather for the last searched city and posts one notification. */
-public class WeatherWorker extends Worker {
+final class WeatherWorker {
     private static final String TAG = "WeatherApp";
     private static final String CHANNEL_ID = "weather_daily";
     private static final int NOTIFICATION_ID = 1001;
 
-    public WeatherWorker(@NonNull Context context, @NonNull WorkerParameters params) {
-        super(context, params);
+    private WeatherWorker() {
     }
 
-    @NonNull
-    @Override
-    public Result doWork() {
-        Context context = getApplicationContext();
+    static void refreshAndNotify(Context context) {
         try {
-            if (!Prefs.notificationsEnabled(context) || !Prefs.hasCity(context)) {
-                return Result.success();
-            }
+            if (!Prefs.notificationsEnabled(context) || !Prefs.hasCity(context)) return;
 
             String url = "https://api.open-meteo.com/v1/forecast?latitude="
                     + Prefs.latitude(context) + "&longitude=" + Prefs.longitude(context)
                     + "&current=temperature_2m,weather_code&timezone=auto";
             JSONObject json = new JSONObject(fetch(url));
             JSONObject current = json.optJSONObject("current");
-            if (current == null) return Result.success();
+            if (current == null) return;
 
             double temp = current.optDouble("temperature_2m", Double.NaN);
             int code = current.optInt("weather_code", -1);
@@ -59,14 +49,9 @@ public class WeatherWorker extends Worker {
             String body = tempText + " · " + conditionText(code, arabic);
 
             postNotification(context, title, body);
-            return Result.success();
         } catch (Throwable t) {
-            // A failed fetch must not retry endlessly — the next scheduled slot
-            // will try again with fresh data.
+            // A failed fetch must not retry endlessly — the next slot will try again.
             Log.w(TAG, "Weather notification fetch failed", t);
-            return Result.success();
-        } finally {
-            NotificationScheduler.scheduleNext(context);
         }
     }
 
@@ -90,7 +75,7 @@ public class WeatherWorker extends Worker {
         }
     }
 
-    private void postNotification(Context context, String title, String body) {
+    private static void postNotification(Context context, String title, String body) {
         NotificationManager manager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
