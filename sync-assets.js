@@ -7,7 +7,7 @@ const path = require("path");
 
 const root = __dirname;
 const dest = path.join(root, "android", "app", "src", "main", "assets", "www");
-const sources = ["index.html", "css", "js", "imgs", "webfonts"];
+const sources = ["index.html", "privacy.html", "css", "js", "imgs", "webfonts"];
 
 function copyAll() {
   fs.rmSync(dest, { recursive: true, force: true });

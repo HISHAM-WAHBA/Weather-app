@@ -22,6 +22,13 @@
       ".app-social i{color:#67e8f9;font-size:16px;line-height:1}",
       ".app-social:hover{background:rgba(56,189,248,.2);border-color:rgba(56,189,248,.65)}",
       ".app-social:active{transform:scale(.92)}",
+      ".app-bell{width:42px;height:42px;min-width:42px;flex:0 0 42px;box-sizing:border-box;",
+      "padding:0;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#67e8f9;",
+      "border:1px solid rgba(56,189,248,.35);background:rgba(56,189,248,.1);",
+      "transition:transform .25s ease,background .25s ease,border-color .25s ease}",
+      ".app-bell i{font-size:16px;line-height:1}",
+      ".app-bell.is-on{background:rgba(56,189,248,.26);border-color:rgba(56,189,248,.8)}",
+      ".app-bell:active{transform:scale(.92)}",
       "footer#contact,footer{display:none!important}",
       "html,body{scrollbar-width:none!important;-ms-overflow-style:none!important}",
       "html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}",
@@ -29,10 +36,10 @@
       "#appVersionBadge{position:fixed;left:0;right:0;bottom:6px;z-index:9999;text-align:center;",
       "font:500 11px/1.2 Poppins,sans-serif;letter-spacing:.4px;color:rgba(165,180,207,.78);",
       "text-shadow:0 1px 4px rgba(0,0,0,.75);pointer-events:none;user-select:none}",
-      "@media(max-width:420px){.app-socials{gap:6px}.app-social{width:38px;height:38px;min-width:38px;flex-basis:38px}}",
+      "@media(max-width:420px){.app-socials{gap:6px}.app-social,.app-bell{width:38px;height:38px;min-width:38px;flex-basis:38px}}",
       "@media(max-width:340px){.brand-logo{width:48px;height:48px;flex-basis:48px}",
       ".lang-toggle{width:44px;height:44px;min-width:44px;min-height:44px;flex-basis:44px}",
-      ".app-social{width:34px;height:34px;min-width:34px;flex-basis:34px}}"
+      ".app-social,.app-bell{width:34px;height:34px;min-width:34px;flex-basis:34px}}"
     ].join("");
     (document.head || document.documentElement).appendChild(style);
   }
@@ -46,9 +53,37 @@
     (document.body || document.documentElement).appendChild(badge);
   }
 
-  // 3) Put the three contact links between the logo and the language button.
+  // 3) App-only bell button: turns the 7 AM / 10 PM weather alerts on or off.
   var actions = document.querySelector(".nav-actions");
   var lang = document.getElementById("langToggle");
+  var bridge = window.WeatherBridge;
+  if (actions && lang && bridge && !document.getElementById("appBell")) {
+    var bell = document.createElement("button");
+    bell.id = "appBell";
+    bell.type = "button";
+    bell.className = "app-bell";
+    actions.insertBefore(bell, lang);
+
+    function paintBell() {
+      var on = false;
+      try { on = !!bridge.getNotificationsEnabled(); } catch (e) {}
+      bell.classList.toggle("is-on", on);
+      bell.innerHTML = on
+        ? '<i class="fa-solid fa-bell" aria-hidden="true"></i>'
+        : '<i class="fa-solid fa-bell-slash" aria-hidden="true"></i>';
+      bell.setAttribute("aria-label", on ? "Notifications on" : "Notifications off");
+      bell.title = on ? "Notifications on · tap to stop" : "Notifications off · tap to start";
+    }
+    paintBell();
+    bell.addEventListener("click", function () {
+      try {
+        bridge.setNotificationsEnabled(!bridge.getNotificationsEnabled());
+        setTimeout(paintBell, 700);
+      } catch (e) {}
+    });
+  }
+
+  // 4) Put the three contact links between the bell and the language button.
   if (!actions || !lang || document.getElementById("appSocials")) return;
 
   var wrap = document.createElement("div");

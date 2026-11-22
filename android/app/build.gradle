@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+// AdMob IDs can be overridden from CI (GitHub Secrets) without changing code.
+// The official Google test IDs are the safe defaults.
+def admobAppId = (project.findProperty('admobAppId') ?: System.getenv('ADMOB_APP_ID') ?: 'ca-app-pub-3940256099942544~3347511713').toString()
+def admobBannerId = (project.findProperty('admobBannerId') ?: System.getenv('ADMOB_BANNER_ID') ?: 'ca-app-pub-3940256099942544/6300978111').toString()
+def admobInterstitialId = (project.findProperty('admobInterstitialId') ?: System.getenv('ADMOB_INTERSTITIAL_ID') ?: 'ca-app-pub-3940256099942544/1033173712').toString()
+
 android {
     namespace 'com.hishamwahba.weatherapp'
     compileSdk 35
@@ -10,8 +16,27 @@ android {
         applicationId 'com.hishamwahba.weatherapp'
         minSdk 23
         targetSdk 35
-        versionCode 6
-        versionName '1.5'
+        versionCode 7
+        versionName '1.6'
+
+        manifestPlaceholders = [admobAppId: admobAppId]
+        buildConfigField 'boolean', 'ENABLE_ADS', 'true'
+        buildConfigField 'String', 'ADMOB_BANNER_ID', '"' + admobBannerId + '"'
+        buildConfigField 'String', 'ADMOB_INTERSTITIAL_ID', '"' + admobInterstitialId + '"'
+    }
+
+    // sideload: GitHub self-update stays on (browser download link).
+    // play:      self-update off — Play policy forbids updating outside the store.
+    flavorDimensions 'distribution'
+    productFlavors {
+        sideload {
+            dimension 'distribution'
+            buildConfigField 'boolean', 'ENABLE_SELF_UPDATE', 'true'
+        }
+        play {
+            dimension 'distribution'
+            buildConfigField 'boolean', 'ENABLE_SELF_UPDATE', 'false'
+        }
     }
 
     // Stable signing key (alias HW) so future updates install over this one.
@@ -39,7 +64,7 @@ android {
         }
     }
 
-    // Needed for BuildConfig.VERSION_NAME used by the in-app version badge.
+    // Needed for BuildConfig.VERSION_NAME / feature flags used by the app.
     buildFeatures {
         buildConfig = true
     }
@@ -48,4 +73,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    // Daily 7 AM / 10 PM weather notifications (survives reboot via WorkManager).
+    implementation 'androidx.work:work-runtime:2.9.1'
+    // AdMob banner + interstitial, with UMP consent dialog for GDPR/CCPA.
+    implementation 'com.google.android.gms:play-services-ads:24.4.0'
+    implementation 'com.google.android.ump:user-messaging-platform:2.2.0'
 }

@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,6 +27,19 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.ads.AdError;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -34,7 +48,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Thin native shell around the existing web app.
  * The UI stays 100% HTML/CSS/JS — this class only wires up Android features
- * (permissions, back button, offline fallback) around a WebView.
+ * (permissions, back button, offline fallback, notifications, ads) around a WebView.
  */
 public class MainActivity extends Activity {
     private static final String TAG = "WeatherApp";
@@ -43,6 +57,7 @@ public class MainActivity extends Activity {
     // Local copy of the same files, used only when there is no connection.
     private static final String LOCAL_URL = "file:///android_asset/www/index.html";
     private static final int LOCATION_REQUEST_CODE = 1001;
+    private static final int NOTIFICATION_REQUEST_CODE = 1002;
 
     private WebView webView;
     private GeolocationPermissions.Callback pendingGeoCallback;
@@ -60,6 +75,12 @@ public class MainActivity extends Activity {
 
     // Update prompt. The browser/download manager handles the APK from here.
     private boolean updateDialogShown;
+
+    // AdMob (official test IDs until real ones are supplied via CI secrets).
+    private AdView adView;
+    private InterstitialAd interstitialAd;
+    private boolean adsInitialized;
+    private boolean interstitialShown;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -91,6 +112,7 @@ public class MainActivity extends Activity {
             webView.setSaveEnabled(false);
             initSplash();
             appSkinJs = readAssetFile("app-skin.js");
+            if (BuildConfig.ENABLE_ADS) initAds();
 
             WebSettings settings = webView.getSettings();
             settings.setJavaScriptEnabled(true);       // the weather app is JS-driven
@@ -106,6 +128,8 @@ public class MainActivity extends Activity {
             webView.setBackgroundColor(0xFF080D1C);
             webView.setVerticalScrollBarEnabled(false);
             webView.setHorizontalScrollBarEnabled(false);
+            // Optional bridge: the website ignores it, the app stores the last city.
+            webView.addJavascriptInterface(new WeatherBridge(this), "WeatherBridge");
 
             webView.setWebViewClient(new WebViewClient() {
                 @Override
@@ -163,7 +187,10 @@ public class MainActivity extends Activity {
             });
 
             loadStartUrl();
-            checkForUpdate();
+            // Play builds must not prompt users to install an APK from outside the store.
+            if (BuildConfig.ENABLE_SELF_UPDATE) checkForUpdate();
+            // Re-arm the 7 AM / 10 PM job if it was enabled on a previous session.
+            NotificationScheduler.scheduleNext(this);
         } catch (Throwable t) {
             Log.e(TAG, "Startup failed", t);
             showFatalError(t);
@@ -209,7 +236,7 @@ public class MainActivity extends Activity {
                     .setStartDelay(280).setDuration(600).start();
         }
         // A blocked/slow page must never leave the splash on screen forever.
-        mainHandler.postDelayed(() -> dismissSplash(), 4500);
+        mainHandler.postDelayed(this::dismissSplash, 4500);
     }
 
     /** Fades the splash out, respecting a short minimum display time. */
@@ -242,7 +269,7 @@ public class MainActivity extends Activity {
         return text.toString();
     }
 
-    /** App-only tweaks: remove footer, put contacts in the navbar. */
+    /** App-only tweaks: remove footer, put contacts + notification bell in the navbar. */
     private void injectAppSkin(WebView view) {
         if (view == null || appSkinJs == null || appSkinJs.isEmpty()) return;
         try {
@@ -253,6 +280,137 @@ public class MainActivity extends Activity {
             Log.e(TAG, "App skin injection failed", t);
         }
     }
+
+    // ================= Notifications (called from WeatherBridge) =================
+
+    boolean hasNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true;
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    void setNotificationsEnabledFromWeb(boolean enabled) {
+        if (!enabled) {
+            Prefs.setNotificationsEnabled(this, false);
+            NotificationScheduler.cancel(this);
+            Toast.makeText(this, "الإشعارات متوقفة", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!hasNotificationPermission()) {
+            try {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_REQUEST_CODE);
+            } catch (Throwable t) {
+                Log.e(TAG, "Notification permission request failed", t);
+            }
+            return;
+        }
+        Prefs.setNotificationsEnabled(this, true);
+        NotificationScheduler.scheduleNext(this);
+        Toast.makeText(this, "الإشعارات مفعّلة · 7 صباحاً و10 مساءً", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Called automatically whenever the web page shows a city's weather. */
+    void onCityLoaded() {
+        if (!BuildConfig.ENABLE_ADS) return;
+        // Slight delay so the interstitial never covers the splash/first paint.
+        mainHandler.postDelayed(() -> {
+            if (isFinishing() || interstitialShown || interstitialAd == null) return;
+            interstitialShown = true;
+            try {
+                interstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        interstitialAd = null;
+                        loadInterstitial();
+                    }
+
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(AdError error) {
+                        interstitialAd = null;
+                        loadInterstitial();
+                    }
+                });
+                interstitialAd.show(this);
+            } catch (Throwable t) {
+                Log.w(TAG, "Could not show interstitial", t);
+                interstitialAd = null;
+            }
+        }, 9000);
+    }
+
+    // ================= AdMob =================
+
+    private void initAds() {
+        try {
+            ConsentRequestParameters params = new ConsentRequestParameters.Builder()
+                    .setTagForUnderAgeOfConsent(false)
+                    .build();
+            UserMessagingPlatform.getConsentInformation(this).requestConsentInfoUpdate(
+                    this,
+                    params,
+                    () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(
+                            this, error -> initializeMobileAds()),
+                    error -> initializeMobileAds());
+            // Never block ads forever if the consent backend is unreachable.
+            mainHandler.postDelayed(this::initializeMobileAds, 5000);
+        } catch (Throwable t) {
+            Log.w(TAG, "Consent flow failed", t);
+            initializeMobileAds();
+        }
+    }
+
+    private void initializeMobileAds() {
+        if (adsInitialized) return;
+        adsInitialized = true;
+        try {
+            MobileAds.initialize(this, status -> runOnUiThread(() -> {
+                loadBanner();
+                loadInterstitial();
+            }));
+        } catch (Throwable t) {
+            Log.w(TAG, "AdMob init failed", t);
+        }
+    }
+
+    private void loadBanner() {
+        try {
+            adView = findViewById(R.id.adView);
+            if (adView == null) return;
+            adView.setAdUnitId(BuildConfig.ADMOB_BANNER_ID);
+            adView.setAdListener(new AdListener() {
+                @Override
+                public void onAdLoaded() {
+                    if (adView != null) adView.setVisibility(View.VISIBLE);
+                }
+            });
+            adView.loadAd(new AdRequest.Builder().build());
+        } catch (Throwable t) {
+            Log.w(TAG, "Banner load failed", t);
+        }
+    }
+
+    private void loadInterstitial() {
+        try {
+            InterstitialAd.load(this, BuildConfig.ADMOB_INTERSTITIAL_ID,
+                    new AdRequest.Builder().build(),
+                    new InterstitialAdLoadCallback() {
+                        @Override
+                        public void onAdLoaded(InterstitialAd ad) {
+                            interstitialAd = ad;
+                        }
+
+                        @Override
+                        public void onAdFailedToLoad(LoadAdError error) {
+                            interstitialAd = null;
+                        }
+                    });
+        } catch (Throwable t) {
+            Log.w(TAG, "Interstitial load failed", t);
+        }
+    }
+
+    // ================= Update / navigation / fallback =================
 
     /** Looks for a newer signed APK published as a GitHub Release. */
     private void checkForUpdate() {
@@ -348,6 +506,20 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == NOTIFICATION_REQUEST_CODE) {
+            boolean granted = grantResults != null && grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                Prefs.setNotificationsEnabled(this, true);
+                NotificationScheduler.scheduleNext(this);
+                Toast.makeText(this, "الإشعارات مفعّلة · 7 صباحاً و10 مساءً", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "الموافقة على الإشعارات مطلوبة", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+
         if (requestCode != LOCATION_REQUEST_CODE || pendingGeoCallback == null) return;
         boolean granted = grantResults != null && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED;

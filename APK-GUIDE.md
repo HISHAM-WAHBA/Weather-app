@@ -59,7 +59,35 @@ npm run watch    # مراقبة تلقائية أثناء التطوير (Ctrl+C
 ## صلاحيات التطبيق
 - `INTERNET`: لجلب الطقس من Open-Meteo وتحميل الموقع.
 - `ACCESS_NETWORK_STATE`: لمعرفة حالة الاتصال قبل تحميل الموقع.
-- `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`: عشان يفتح المدينة تلقائياً زي المتصفح (بيطلب إذن من المستخدم أول مرة).
+- `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`: عشان يفتح المدينة تلقائياً زي المتصفح (بيطلب إذن من المستخدم أول مرة). **مفيش موقع في الخلفية.**
+- `POST_NOTIFICATIONS` (أندرويد 13+): بيُطلب فقط لما المستخدم يضغط زر الجرس لتفعيل الإشعارات.
+- `RECEIVE_BOOT_COMPLETED`: لإعادة جدولة الإشعار بعد إعادة تشغيل الموبايل.
+- **مفيش `REQUEST_INSTALL_PACKAGES`** — التحديث بيفتح المتصفح زي ما هو موضّح فوق.
+
+## الإشعارات اليومية (7 صباحاً و10 مساءً)
+- زر الجرس ظاهر في navbar التطبيق فقط (مش في الموقع) — اضغطه لتفعيل أو إيقاف الإشعارين.
+- التطبيق بيحفظ **آخر مدينة بحثت عنها** (الاسم، الدولة، الإحداثيات، اللغة) محلياً في `SharedPreferences`، وبيستخدمها لجلب الطقس من Open-Meteo وقت الإشعار.
+- الجسر بين JS والأندرويد اسمه `window.WeatherBridge` وبيُحقن في التطبيق فقط. نفس `js/index.js` على الموقع بيشتغل عادي لأن الجسر مش موجود هناك (no-op).
+- الجدولة بـ `WorkManager` (`NotificationScheduler.java` + `WeatherWorker.java`) والمهمة بتعيد جدولة نفسها بعد كل إشعار. التوقيت تقريبي بسبب Doze/البطارية.
+- الإشعار متوقف افتراضياً؛ ومفيش أي بيانات بتتبعت لخادم خاص بنا.
+
+## الإعلانات (AdMob)
+- بانر في آخر الشاشة + إعلان بيني مرة لكل جلسة، بـ **معرّفات Google التجريبية الرسمية** حالياً.
+- شاشة موافقة UMP (GDPR/CCPA) بتظهر قبل تحميل الإعلانات.
+- المعرّفات قابلة للتبديل من GitHub Secrets من غير تعديل الكود:
+  `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_INTERSTITIAL_ID`.
+- ملفات ذات صلة: `MainActivity.java` (initAds/loadBanner/loadInterstitial) و `AndroidManifest.xml` (بيانات الـ App ID) و `res/layout/activity_main.xml` (الـ AdView).
+
+## Google Play
+- البناء بيطلع **AAB** للـ flavor بتاع Play كمان: المهمة `bundlePlayRelease` والملف في artifact اسمه `weather-app-aab`.
+- **Product flavors:**
+  - `sideload`: التحديث الذاتي من GitHub شغال (برابط تحميل في المتصفح) — ده الـ APK اللي بنوزّعه يدوياً.
+  - `play`: التحديث الذاتي **متوقف** (سياسة Play تمنع التحديث من بره المتجر). نفس اسم الحزمة والتوقيع عشان ترقية المستخدمين من نسخة الـ sideload من غير مسح.
+- الرفع الآلي بيحصل لو اضفت Secret اسمه `PLAY_SERVICE_ACCOUNT_JSON` (محتوى ملف الـ service account JSON كامل). لو مش موجود، خطوة الرفع تتخطى والبناء يكمل عادي.
+- الرفع بيحصل على المسار `internal` بحالة `draft`؛ بعدها تروح الـ Console وتنشئ closed testing (12 مختبِر / 14 يوم) ثم تنشر.
+- لازم في الـ Console تختار **App signing by Google Play** وتستخدم نفس مفتاح `HW.jks` كـ app signing key عشان التوقيع يفضل متطابق.
+- صفحة `privacy.html` متاحة على `https://weather-app-sooty-phi-31.vercel.app/privacy.html` ومتصل من footer الموقع — استخدم الرابط ده في خانة Privacy Policy في الـ Console.
+- لازم تكمل في الـ Console: Data Safety (بيانات محلية + إعلانات)، تصنيف المحتوى، لقطات شاشة، أيقونة 512px، ووصف المتجر.
 
 ## ملاحظات
 - الـ APK **release** وموقّع بمفتاح ثابت: ملفه `android/app/HW.jks` والـ alias الخاص به `HW`.

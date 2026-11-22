@@ -479,7 +479,7 @@ function hideError() {
 }
 
 // ================ Data (Open-Meteo) ================
-function normalizeForecast(raw, name, country, lang) {
+function normalizeForecast(raw, name, country, lang, latitude, longitude) {
   const current = raw.current;
   const daily = raw.daily;
   const currentCode = Number(current.weather_code);
@@ -490,6 +490,8 @@ function normalizeForecast(raw, name, country, lang) {
     location: {
       name,
       country,
+      latitude,
+      longitude,
       localtime: `${localDate} ${localHour}`,
       // Open-Meteo resolves these from the coordinates (timezone=auto).
       timezone: raw.timezone || "",
@@ -573,7 +575,26 @@ async function getData(city, days = FORECAST_DAYS, lang = currentLang) {
   if (!raw.current || !raw.daily?.time?.length) {
     return { error: { message: t("errCity") } };
   }
-  return normalizeForecast(raw, name, country, lang);
+  return normalizeForecast(raw, name, country, lang, latitude, longitude);
+}
+
+// Native Android apps remember this city for the 7 AM / 10 PM notifications.
+// On the website window.WeatherBridge does not exist, so this is a harmless no-op.
+function rememberCityForApp(data) {
+  try {
+    const bridge = window.WeatherBridge;
+    const loc = data && data.location;
+    if (!bridge || !loc || typeof bridge.saveLastCity !== "function") return;
+    bridge.saveLastCity(
+      String(loc.name || ""),
+      String(loc.country || ""),
+      String(loc.latitude),
+      String(loc.longitude),
+      currentLang
+    );
+  } catch (err) {
+    // Ignore — the bridge only exists inside the APK.
+  }
 }
 
 async function startApp(city, force = false) {
@@ -588,6 +609,7 @@ async function startApp(city, force = false) {
     weatherData = await getData(query, FORECAST_DAYS, currentLang);
     if (!weatherData.error) {
       lastFetchedQuery = query.toLowerCase();
+      rememberCityForApp(weatherData);
       applyWeatherTheme(weatherData);
       replayCardAnimations();
       todayWeather();

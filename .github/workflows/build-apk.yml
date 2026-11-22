@@ -11,6 +11,13 @@ on:
 permissions:
   contents: write
 
+# Real AdMob IDs can be supplied as Secrets. Until then the official Google
+# test IDs are used, so the build always works.
+env:
+  ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID || 'ca-app-pub-3940256099942544~3347511713' }}
+  ADMOB_BANNER_ID: ${{ secrets.ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/6300978111' }}
+  ADMOB_INTERSTITIAL_ID: ${{ secrets.ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,12 +41,23 @@ jobs:
         working-directory: android
         run: chmod +x gradlew
 
-      - name: Build signed release APK
+      - name: Build signed sideload APK
         working-directory: android
         run: |
           for attempt in 1 2 3; do
             echo "Build attempt $attempt of 3"
-            if ./gradlew assembleRelease --no-daemon; then
+            if ./gradlew assembleSideloadRelease --no-daemon; then
+              exit 0
+            fi
+          done
+          exit 1
+
+      - name: Build signed Play AAB
+        working-directory: android
+        run: |
+          for attempt in 1 2 3; do
+            echo "AAB build attempt $attempt of 3"
+            if ./gradlew bundlePlayRelease --no-daemon; then
               exit 0
             fi
           done
@@ -49,15 +67,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: weather-app
-          path: 'android/app/build/outputs/apk/release/weather app.apk'
+          path: 'android/app/build/outputs/apk/sideload/release/weather app.apk'
           retention-days: 30
 
-      # The app checks /releases/latest, so every build must publish the APK.
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-app-aab
+          path: 'android/app/build/outputs/bundle/playRelease/*.aab'
+          retention-days: 30
+
+      # The app checks /releases/latest, so every sideload build must publish the APK.
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="android/app/build/outputs/apk/release/weather app.apk"
+          APK="android/app/build/outputs/apk/sideload/release/weather app.apk"
           VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" android/app/build.gradle | head -n 1)
           TAG="v${VERSION}"
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -65,6 +90,28 @@ jobs:
           else
             gh release create "$TAG" "$APK#weather app.apk" \
               --title "Weather App $TAG" \
-              --notes "Signed release APK. Installs over the previous version." \
+              --notes "Signed sideload APK. Installs over the previous version." \
               --target "$GITHUB_SHA"
           fi
+
+      # Secrets are not available in step-level `if`, so expose a flag first.
+      - name: Check Play service account
+        id: play_secret
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$PLAY_JSON" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload AAB to Google Play (internal, draft)
+        if: steps.play_secret.outputs.available == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.hishamwahba.weatherapp
+          releaseFiles: android/app/build/outputs/bundle/playRelease/*.aab
+          track: internal
+          status: draft
