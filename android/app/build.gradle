@@ -8,6 +8,11 @@ def admobAppId = (project.findProperty('admobAppId') ?: System.getenv('ADMOB_APP
 def admobBannerId = (project.findProperty('admobBannerId') ?: System.getenv('ADMOB_BANNER_ID') ?: 'ca-app-pub-3940256099942544/6300978111').toString()
 def admobInterstitialId = (project.findProperty('admobInterstitialId') ?: System.getenv('ADMOB_INTERSTITIAL_ID') ?: 'ca-app-pub-3940256099942544/1033173712').toString()
 
+// Ads are OFF until real AdMob IDs + a payment method are ready.
+// Flip this back on with GitHub Secret ENABLE_ADS=true (or -PenableAds=true)
+// together with the three real IDs — no code change needed.
+def adsEnabled = (project.findProperty('enableAds') ?: System.getenv('ENABLE_ADS') ?: 'false').toString().toBoolean()
+
 android {
     namespace 'com.hishamwahba.weatherapp'
     compileSdk 35
@@ -16,11 +21,11 @@ android {
         applicationId 'com.hishamwahba.weatherapp'
         minSdk 23
         targetSdk 35
-        versionCode 7
-        versionName '1.6'
+        versionCode 8
+        versionName '1.7'
 
         manifestPlaceholders = [admobAppId: admobAppId]
-        buildConfigField 'boolean', 'ENABLE_ADS', 'true'
+        buildConfigField 'boolean', 'ENABLE_ADS', String.valueOf(adsEnabled)
         buildConfigField 'String', 'ADMOB_BANNER_ID', '"' + admobBannerId + '"'
         buildConfigField 'String', 'ADMOB_INTERSTITIAL_ID', '"' + admobInterstitialId + '"'
     }
@@ -57,10 +62,10 @@ android {
         }
     }
 
-    // Output file name: "weather app.apk" — no "debug"/"release" in the name.
+    // Output file name includes the version, e.g. "weather-app-v1.7.apk" — no "debug"/"release".
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = 'weather app.apk'
+            outputFileName = "weather-app-v${variant.versionName}.apk"
         }
     }
 
@@ -78,7 +83,8 @@ android {
 dependencies {
     // Daily 7 AM / 10 PM weather notifications use the framework AlarmManager,
     // so no background-work library is needed here.
-    // AdMob banner + interstitial, with UMP consent dialog for GDPR/CCPA.
+    // AdMob + UMP are kept for an easy re-enable (ENABLE_ADS=true), but
+    // MainActivity never initializes them when BuildConfig.ENABLE_ADS is false.
     implementation 'com.google.android.gms:play-services-ads:24.4.0'
     implementation 'com.google.android.ump:user-messaging-platform:2.2.0'
 }

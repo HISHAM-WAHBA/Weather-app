@@ -50,11 +50,12 @@ npm run watch    # مراقبة تلقائية أثناء التطوير (Ctrl+C
 - تعديلات التطبيق فقط (`app-skin.js`، `MainActivity`، الصلاحيات، رقم الإصدار) محتاجة APK جديد يتثبّت مرة واحدة. بعدها أي تعديل موقع بيظهر فوراً زي ما هو مطلوب.
 
 ## التحديث جوّه التطبيق
-- كل بناء ناجح ينشئ GitHub Release بالـ tag `v<versionName>` ويرفع `weather app.apk` فيه تلقائياً.
-- عند فتح التطبيق بيقارن إصدار المثبّت بآخر Release: لو فيه إصدار أحدث يظهر "`New version available`" مع زر **Download now** و**Later**.
-- الزر يفتح رابط التحميل في المتصفح: المتصفح/مدير التحميل بينزّل الـ APK ويظهر شاشة التثبيت العادية — المستخدم يضغط "تثبيت".
+- كل بناء ناجح ينشئ GitHub Release بالـ tag `v<versionName>` ويرفع `weather-app-v<version>.apk` فيه تلقائياً (اسم الملف بيحمل رقم النسخة).
+- عند فتح التطبيق بيقارن إصدار المثبّت بآخر Release: لو فيه إصدار أحدث يظهر "`New version available`" مع زر **Update now** و**Later**.
+- الضغط على **Update now** بيحمّل الـ APK **داخل التطبيق** عبر `DownloadManager`، وبعد اكتمال التحميل Android بيعرض شاشة التثبيت العادية — المستخدم يضغط "تثبيت" بس.
 - التطبيق نفسه **ما بيطلبش** صلاحية `REQUEST_INSTALL_PACKAGES`، فأنظمة حماية الموبايل ما ترفضهوش.
-- أول تثبيت لابد من تفعيل "Install unknown apps" للمتصفح (أو للتطبيق لو حمّلت منه) — ده إعداد أندرويد مش تبع نظامنا.
+- لو التحميل جوّه التطبيق فشل لأي سبب، بيحصل fallback لفتح رابط التحميل في المتصفح.
+- أول تثبيت/تحديث قد يحتاج تفعيل "Install unknown apps" للتطبيق — ده إعداد أندرويد عادي مش تبع نظامنا.
 
 ## صلاحيات التطبيق
 - `INTERNET`: لجلب الطقس من Open-Meteo وتحميل الموقع.
@@ -71,11 +72,9 @@ npm run watch    # مراقبة تلقائية أثناء التطوير (Ctrl+C
 - الجدولة بـ `AlarmManager` (`NotificationScheduler.java`) مع `WeatherAlarmReceiver` و`BootReceiver`، والمنبّه بيعيد جدولة نفسه بعد كل إشعار وبعد إعادة تشغيل الموبايل. التوقيت تقريبي بسبب Doze/البطارية (من غير صلاحية exact alarms اللي Play بيقيّدها).
 - الإشعار متوقف افتراضياً؛ ومفيش أي بيانات بتتبعت لخادم خاص بنا.
 
-## الإعلانات (AdMob)
-- بانر في آخر الشاشة + إعلان بيني مرة لكل جلسة، بـ **معرّفات Google التجريبية الرسمية** حالياً.
-- شاشة موافقة UMP (GDPR/CCPA) بتظهر قبل تحميل الإعلانات.
-- المعرّفات قابلة للتبديل من GitHub Secrets من غير تعديل الكود:
-  `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_INTERSTITIAL_ID`.
+## الإعلانات (AdMob) — معطّلة مؤقتاً
+- الإعلانات **متوقفة حالياً** لأن الـ flag `ENABLE_ADS=false` (الافتراضي). ما فيش طلبات إعلانات ولا تهيئة AdMob ولا شاشة موافقة UMP طالما هي متوقفة.
+- لما تبقى جاهز (حساب AdMob + طريقة استلام دفع): أضف GitHub Secrets `ENABLE_ADS=true` ومعاها `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_INTERSTITIAL_ID` بالمعرّفات الحقيقية، واعمل Run workflow — من غير أي تعديل كود.
 - ملفات ذات صلة: `MainActivity.java` (initAds/loadBanner/loadInterstitial) و `AndroidManifest.xml` (بيانات الـ App ID) و `res/layout/activity_main.xml` (الـ AdView).
 
 ## Google Play

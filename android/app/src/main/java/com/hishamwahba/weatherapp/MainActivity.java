@@ -4,7 +4,11 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -73,8 +77,10 @@ public class MainActivity extends Activity {
     private boolean splashDismissScheduled;
     private String appSkinJs;
 
-    // Update prompt. The browser/download manager handles the APK from here.
+    // In-app update download (sideload flavor only).
     private boolean updateDialogShown;
+    private long updateDownloadId = -1;
+    private BroadcastReceiver updateDownloadReceiver;
 
     // AdMob (official test IDs until real ones are supplied via CI secrets).
     private AdView adView;
@@ -425,16 +431,90 @@ public class MainActivity extends Activity {
                     .setTitle(R.string.update_title)
                     .setMessage(message)
                     .setPositiveButton(R.string.update_now,
-                            (dialog, which) -> openReleaseInBrowser(release.downloadUrl))
+                            (dialog, which) -> downloadUpdate(release))
                     .setNegativeButton(R.string.update_later, null)
                     .show();
         });
     }
 
     /**
-     * Let the browser/download manager handle the APK. This keeps the app free of
-     * the install-package permission, which some phone security suites reject.
+     * Downloads the release APK inside the app via DownloadManager, then opens the
+     * system package installer. No REQUEST_INSTALL_PACKAGES permission is needed.
      */
+    private void downloadUpdate(UpdateChecker.Release release) {
+        try {
+            String fileName = "weather-app-v" + release.version + ".apk";
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            if (dm == null) {
+                openReleaseInBrowser(release.downloadUrl);
+                return;
+            }
+
+            // Remove old downloaded APKs to keep storage clean.
+            try {
+                java.io.File dir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS);
+                if (dir != null && dir.listFiles() != null) {
+                    for (java.io.File f : dir.listFiles()) {
+                        if (f.getName().startsWith("weather-app-v") && f.getName().endsWith(".apk")) f.delete();
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(release.downloadUrl));
+            request.setMimeType("application/vnd.android.package-archive");
+            request.setTitle(getString(R.string.app_name) + " v" + release.version);
+            request.setDescription(getString(R.string.update_downloading));
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalFilesDir(this, android.os.Environment.DIRECTORY_DOWNLOADS, fileName);
+            updateDownloadId = dm.enqueue(request);
+
+            registerUpdateDownloadReceiver();
+            Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Log.e(TAG, "In-app download failed, falling back to browser", t);
+            openReleaseInBrowser(release.downloadUrl);
+        }
+    }
+
+    private void registerUpdateDownloadReceiver() {
+        if (updateDownloadReceiver != null) return;
+        updateDownloadReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                if (id != updateDownloadId) return;
+                installDownloadedUpdate();
+            }
+        };
+        IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(updateDownloadReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(updateDownloadReceiver, filter);
+        }
+    }
+
+    private void installDownloadedUpdate() {
+        try {
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            if (dm == null) return;
+            Uri uri = dm.getUriForDownloadedFile(updateDownloadId);
+            if (uri == null) {
+                Toast.makeText(this, R.string.update_failed, Toast.LENGTH_LONG).show();
+                return;
+            }
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(uri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(install);
+        } catch (Throwable t) {
+            Log.e(TAG, "Could not launch installer", t);
+            Toast.makeText(this, R.string.update_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Browser fallback if in-app download is unavailable. */
     private void openReleaseInBrowser(String url) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
@@ -530,6 +610,15 @@ public class MainActivity extends Activity {
         }
         pendingGeoCallback = null;
         pendingGeoOrigin = null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (updateDownloadReceiver != null) {
+            try { unregisterReceiver(updateDownloadReceiver); } catch (Throwable ignored) {}
+            updateDownloadReceiver = null;
+        }
+        super.onDestroy();
     }
 
     @Override

@@ -11,9 +11,10 @@ on:
 permissions:
   contents: write
 
-# Real AdMob IDs can be supplied as Secrets. Until then the official Google
-# test IDs are used, so the build always works.
+# Ads stay OFF until real AdMob IDs and a payout method are ready.
+# Re-enable with Secrets: ENABLE_ADS=true + real ADMOB_* IDs, then Run workflow.
 env:
+  ENABLE_ADS: ${{ secrets.ENABLE_ADS || 'false' }}
   ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID || 'ca-app-pub-3940256099942544~3347511713' }}
   ADMOB_BANNER_ID: ${{ secrets.ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/6300978111' }}
   ADMOB_INTERSTITIAL_ID: ${{ secrets.ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712' }}
@@ -63,11 +64,19 @@ jobs:
           done
           exit 1
 
+      - name: Locate sideload APK
+        id: apk
+        run: |
+          APK=$(ls android/app/build/outputs/apk/sideload/release/*.apk | head -n 1)
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$APK")" >> "$GITHUB_OUTPUT"
+          echo "APK: $APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: weather-app
-          path: 'android/app/build/outputs/apk/sideload/release/weather app.apk'
+          path: ${{ steps.apk.outputs.path }}
           retention-days: 30
 
       - name: Upload AAB
@@ -82,13 +91,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="android/app/build/outputs/apk/sideload/release/weather app.apk"
+          APK="${{ steps.apk.outputs.path }}"
+          NAME="${{ steps.apk.outputs.name }}"
           VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" android/app/build.gradle | head -n 1)
           TAG="v${VERSION}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#weather app.apk" --clobber
+            gh release upload "$TAG" "$APK#$NAME" --clobber
           else
-            gh release create "$TAG" "$APK#weather app.apk" \
+            gh release create "$TAG" "$APK#$NAME" \
               --title "Weather App $TAG" \
               --notes "Signed sideload APK. Installs over the previous version." \
               --target "$GITHUB_SHA"

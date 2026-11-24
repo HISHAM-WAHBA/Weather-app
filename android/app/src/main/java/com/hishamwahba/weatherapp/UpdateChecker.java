@@ -120,7 +120,9 @@ public final class UpdateChecker {
     private static boolean isApkName(String value) {
         if (value == null) return false;
         String name = value.trim().toLowerCase();
-        return name.equals(APK_NAME.toLowerCase()) || name.equals("weather.app.apk");
+        return name.equals(APK_NAME.toLowerCase())
+                || name.equals("weather.app.apk")
+                || (name.startsWith("weather-app-v") && name.endsWith(".apk"));
     }
 
     private static boolean isNewer(String candidate, String current) {
